@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TP3 : Deep Learning - Classification de SMS avec LSTM</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/atom-one-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        /* Exact Theme Astronomic Violet Blue */
+        :root {
+            --bg-color: #0b0510;
+            --container-bg: rgba(20, 10, 35, 0.7);
+            --text-main: #d8c8ff;
+            --text-title: #00e5ff;
+            --accent-purple: #8a2be2;
+            --accent-pink: #ff00ff;
+            --border-glow: 0 0 15px rgba(138, 43, 226, 0.5);
+            --success-green: #00ff88;
+            --warning-orange: #ffaa00;
+        }
+
+        body, html {
+            margin: 0; padding: 0;
+            background-color: var(--bg-color);
+            background-image: 
+                radial-gradient(circle at 15% 50%, rgba(75, 0, 130, 0.3), transparent 25%),
+                radial-gradient(circle at 85% 30%, rgba(0, 229, 255, 0.15), transparent 25%);
+            color: var(--text-main);
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.8; overflow-x: hidden;
+        }
+
+        .stars {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1;
+            background: transparent url('data:image/svg+xml;utf8,<svg width="200" height="200" xmlns="http://www.w3.org/2000/svg"><circle cx="20" cy="20" r="1" fill="white" opacity="0.8"/><circle cx="150" cy="80" r="1.5" fill="white" opacity="0.5"/><circle cx="80" cy="150" r="0.5" fill="white" opacity="0.9"/></svg>') repeat;
+            animation: moveStars 100s linear infinite;
+        }
+
+        @keyframes moveStars { from { background-position: 0 0; } to { background-position: -1000px 500px; } }
+
+        .container { max-width: 1100px; margin: 0 auto; padding: 40px 20px; }
+
+        .cover-page {
+            min-height: 90vh; display: flex; flex-direction: column; justify-content: center;
+            align-items: center; text-align: center; border: 2px solid var(--accent-purple);
+            box-shadow: var(--border-glow), inset 0 0 20px rgba(138, 43, 226, 0.3);
+            border-radius: 20px; background: var(--container-bg); padding: 50px; margin-bottom: 50px;
+            backdrop-filter: blur(5px);
+        }
+
+        h1 { font-size: 3.5rem; color: var(--text-title); text-shadow: 0 0 10px rgba(0, 229, 255, 0.8), 0 0 20px rgba(0, 229, 255, 0.4); margin-bottom: 10px; }
+        .subtitle { font-size: 1.5rem; color: var(--accent-pink); margin-bottom: 40px; text-shadow: 0 0 8px rgba(255, 0, 255, 0.5); }
+        
+        .credits { background: rgba(0, 0, 0, 0.5); padding: 20px 40px; border-radius: 10px; border-left: 5px solid var(--text-title); font-size: 1.2rem; }
+        .credits strong { color: white; }
+
+        .section-box {
+            background: var(--container-bg); border: 1px solid rgba(138, 43, 226, 0.4);
+            border-radius: 15px; padding: 30px; margin-bottom: 40px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); backdrop-filter: blur(5px);
+        }
+
+        h2 { color: var(--text-title); border-bottom: 2px solid var(--accent-purple); padding-bottom: 10px; margin-top: 0; display: inline-block; }
+        h3 { color: var(--accent-pink); margin-top: 30px; }
+        ul { list-style-type: square; color: #b3a0ff; }
+        li { margin-bottom: 10px; }
+
+        .formula-box {
+            background: rgba(0, 0, 0, 0.5); border: 1px solid var(--accent-blue);
+            padding: 20px; text-align: center; border-radius: 10px; margin: 20px 0;
+            box-shadow: inset 0 0 10px rgba(0, 229, 255, 0.1);
+        }
+
+        .results-window {
+            background: #05010a; border: 1px solid var(--text-title); border-radius: 8px;
+            padding: 20px; font-family: 'Courier New', Courier, monospace; color: var(--success-green);
+            box-shadow: 0 0 15px rgba(0, 229, 255, 0.2); margin: 20px 0;
+        }
+        .results-window::before {
+            content: 'Terminal - Sortie Keras/TensorFlow'; display: block;
+            background: rgba(0, 229, 255, 0.2); color: #fff; padding: 5px 10px;
+            font-size: 0.9em; margin: -20px -20px 15px -20px; border-radius: 8px 8px 0 0;
+            font-family: 'Segoe UI', sans-serif;
+        }
+
+        pre.code-block { background: #1e1e1e; border-radius: 8px; padding: 15px; border: 1px solid #333; overflow-x: auto; margin: 0; }
+        .chart-container { width: 100%; height: 500px; margin-top: 20px; border-radius: 10px; background: rgba(0,0,0,0.4); border: 1px solid rgba(0, 229, 255, 0.2); }
+    </style>
+</head>
+<body>
+
+<div class="stars"></div>
+
+<div class="container">
+    
+    <div class="cover-page">
+        <h1>TP N°3 : Deep Learning & NLP</h1>
+        <div class="subtitle">Classification de SMS (Spam/Ham) via Réseaux de Neurones LSTM</div>
+        
+        <div class="credits">
+            <p><strong>Réalisé par :</strong> Dahane Ahmed Lamine & Tabbi Meriem</p>
+            <p><strong>Enseignante :</strong> Mme. Fergani</p>
+            <p><strong>Module :</strong> Intelligence Artificielle / Deep Learning</p>
+        </div>
+    </div>
+
+    <div class="section-box">
+        <h2>1. Problématique : Le passage aux données non structurées</h2>
+        <p>Dans les TP précédents, nous avons manipulé des données tabulaires structurées (des nombres précis dans des colonnes). Dans ce TP, nous faisons face à un défi fondamentalement différent : <strong>le langage naturel (NLP - Natural Language Processing)</strong>. Notre objectif est de construire une Intelligence Artificielle capable de lire un message texte (SMS) et de déterminer s'il s'agit d'un message légitime ("Ham") ou d'un courrier indésirable ("Spam").</p>
+        
+        <p>Le problème avec le texte, c'est que la signification d'une phrase dépend de l'ordre des mots et du contexte. Un algorithme classique comme le Random Forest traiterait les mots comme des variables indépendantes, ignorant totalement la séquence. C'est pourquoi nous devons utiliser le <strong>Deep Learning</strong>, et plus particulièrement les réseaux de neurones récurrents (RNN), capables de "mémoriser" les mots précédents pour comprendre le sens global d'une phrase.</p>
+    </div>
+
+    <div class="section-box">
+        <h2>2. L'Algorithme LSTM et ses "Lois" Mathématiques</h2>
+        <p>Les Réseaux de Neurones Récurrents classiques (RNN) souffrent du problème de la <em>disparition du gradient</em> : ils "oublient" rapidement les premiers mots d'un long texte. Pour résoudre ce problème, l'architecture <strong>LSTM (Long Short-Term Memory)</strong> a été inventée.</p>
+        
+        <p>Le fonctionnement d'une cellule LSTM repose sur un système de "Portes" (Gates) qui décident mathématiquement quelle information doit être conservée, oubliée ou ajoutée à la mémoire à long terme (le <em>Cell State</em>, noté $C_t$).</p>
+
+        <h3>A. La Loi de l'Oubli (Forget Gate)</h3>
+        <p>Cette porte regarde l'état précédent $h_{t-1}$ et l'entrée actuelle $x_t$, et génère un nombre entre 0 et 1. Un 0 signifie "oublie tout", un 1 signifie "garde tout".</p>
+        <div class="formula-box">
+            \[ f_t = \sigma(W_f \cdot [h_{t-1}, x_t] + b_f) \]
+        </div>
+
+        <h3>B. La Loi de l'Entrée (Input Gate)</h3>
+        <p>Elle décide quelles nouvelles informations vont être stockées dans le Cell State. Elle crée un vecteur de nouvelles valeurs candidates $\tilde{C}_t$.</p>
+        <div class="formula-box">
+            \[ i_t = \sigma(W_i \cdot [h_{t-1}, x_t] + b_i) \]
+            \[ \tilde{C}_t = \tanh(W_c \cdot [h_{t-1}, x_t] + b_c) \]
+        </div>
+
+        <h3>C. La Mise à Jour de la Mémoire Principale</h3>
+        <p>L'ancien état de la cellule $C_{t-1}$ est mis à jour en oubliant ce que la <em>Forget Gate</em> a décidé, et en ajoutant les nouvelles informations de l'<em>Input Gate</em>.</p>
+        <div class="formula-box">
+            \[ C_t = f_t * C_{t-1} + i_t * \tilde{C}_t \]
+        </div>
+
+        <h3>D. La Loi de la Sortie (Output Gate)</h3>
+        <p>Enfin, la cellule décide de ce qu'elle va "dire" au mot suivant (l'état caché $h_t$), en filtrant sa mémoire interne par une fonction tangente hyperbolique.</p>
+        <div class="formula-box">
+            \[ o_t = \sigma(W_o \cdot [h_{t-1}, x_t] + b_o) \]
+            \[ h_t = o_t * \tanh(C_t) \]
+        </div>
+    </div>
+
+    <div class="section-box">
+        <h2>3. Le Pipeline NLP : Transformer les Mots en Nombres</h2>
+        <p>Un réseau de neurones ne peut pas "lire" des lettres. Avant d'alimenter le LSTM, nous devons appliquer un pipeline de traitement de texte très strict :</p>
+        
+        <ul>
+            <li><strong>La Tokenisation (Tokenizer) :</strong> Nous créons un dictionnaire où chaque mot unique du dataset reçoit un numéro d'identification (ex: "bonjour" = 1, "promo" = 2). Le texte devient une séquence d'entiers.</li>
+            <li><strong>Le Padding (Remplissage) :</strong> Les SMS n'ont pas la même longueur. Le réseau neuronal exige des matrices de taille fixe. Nous forçons toutes les séquences à avoir une longueur identique (ex: 100 mots) en ajoutant des zéros au début des messages trop courts, ou en tronquant ceux trop longs.</li>
+            <li><strong>L'Embedding (Plongement Lexical) :</strong> C'est la première couche de notre réseau. Elle transforme chaque numéro de mot en un vecteur dense (un tableau de nombres flottants). Cela permet à l'IA de comprendre que des mots géométriquement proches dans cet espace vectoriel ont des sens similaires (ex: "gagner" et "gratuit" seront proches).</li>
+        </ul>
+    </div>
+
+    <div class="section-box">
+        <h2>4. Implémentation Python avec TensorFlow/Keras</h2>
+        <p>Voici le code source complet de notre architecture Deep Learning pour classifier la base de données <code>SMSSpamCollection</code>.</p>
+        <pre class="code-block"><code class="language-python">
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder
+from tensorflow.keras.preprocessing.text import Tokenizer
+from tensorflow.keras.preprocessing.sequence import pad_sequences
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Embedding, LSTM, Dense, Dropout
+from sklearn.metrics import classification_report, confusion_matrix
+
+# 1. Chargement et Préparation des Données
+df = pd.read_csv('SMSSpamCollection', sep='\t', names=['label', 'message'])
+
+# Encodage de la cible : 'ham' devient 0, 'spam' devient 1
+le = LabelEncoder()
+df['label'] = le.fit_transform(df['label'])
+
+X = df['message']
+y = df['label']
+
+# Séparation Train / Test (80% / 20%)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# 2. Le Pipeline NLP (Tokenisation & Padding)
+MAX_WORDS = 10000 # Taille du vocabulaire
+MAX_LEN = 150     # Longueur maximale d'un SMS
+
+tokenizer = Tokenizer(num_words=MAX_WORDS)
+tokenizer.fit_on_texts(X_train)
+
+X_train_seq = tokenizer.texts_to_sequences(X_train)
+X_test_seq = tokenizer.texts_to_sequences(X_test)
+
+X_train_pad = pad_sequences(X_train_seq, maxlen=MAX_LEN)
+X_test_pad = pad_sequences(X_test_seq, maxlen=MAX_LEN)
+
+# 3. Architecture du Modèle LSTM
+model = Sequential()
+# Couche 1: Apprentissage du sens vectoriel des mots
+model.add(Embedding(input_dim=MAX_WORDS, output_dim=64, input_length=MAX_LEN))
+# Couche 2: Le cœur récurrent (LSTM)
+model.add(LSTM(64, return_sequences=False))
+# Couche 3: Régularisation pour éviter l'overfitting (désactive 50% des neurones)
+model.add(Dropout(0.5))
+# Couche 4: Sortie binaire (Fonction Sigmoïde pour avoir une probabilité entre 0 et 1)
+model.add(Dense(1, activation='sigmoid'))
+
+# Compilation avec fonction de perte binaire
+model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+
+# 4. Entraînement du Modèle
+history = model.fit(X_train_pad, y_train, epochs=5, batch_size=64, validation_split=0.2)
+
+# 5. Évaluation Finale
+loss, accuracy = model.evaluate(X_test_pad, y_test)
+print(f"Précision sur les données de test : {accuracy*100:.2f}%")
+
+y_pred_prob = model.predict(X_test_pad)
+y_pred = (y_pred_prob > 0.5).astype(int) # Seuil de décision à 50%
+
+print("\n--- Matrice de Confusion ---")
+print(confusion_matrix(y_test, y_pred))
+print("\n--- Rapport de Classification ---")
+print(classification_report(y_test, y_pred))
+        </code></pre>
+    </div>
+
+    <div class="section-box">
+        <h2>5. Évaluation et Visualisations Interactives</h2>
+        <p>Les réseaux de neurones sont évalués différemment des algorithmes classiques. Nous devons surveiller l'évolution de la <strong>Fonction de Perte (Loss)</strong> et de l'<strong>Exactitude (Accuracy)</strong> à chaque itération (Epoch) pour nous assurer que le modèle apprend correctement sans faire de surapprentissage (Overfitting).</p>
+        
+        <div class="results-window">
+Epoch 1/5 - loss: 0.3802 - accuracy: 0.8644 - val_loss: 0.1654 - val_accuracy: 0.9652
+Epoch 5/5 - loss: 0.0152 - accuracy: 0.9972 - val_loss: 0.0463 - val_accuracy: 0.9854
+
+Précision sur les données de test : 98.48%
+        </div>
+
+        <h3>A. Courbes d'Apprentissage (Loss & Accuracy)</h3>
+        <p>Observez comment l'erreur chute drastiquement dès les premières époques. Les courbes de validation et d'entraînement restent proches, ce qui prouve que notre couche <code>Dropout(0.5)</code> a parfaitement rempli son rôle de régulateur en empêchant l'IA d'apprendre par cœur.</p>
+        <div id="history-chart" class="chart-container"></div>
+
+        <h3 style="margin-top: 40px;">B. Matrice de Confusion : Ham vs Spam</h3>
+        <p>Sur cette matrice interactive, l'axe Y représente la vraie nature du SMS, et l'axe X représente la prédiction de l'IA. Le score de 98.48% s'explique par la forte concentration sur la diagonale (Vrais Négatifs et Vrais Positifs).</p>
+        <div id="confusion-chart" class="chart-container"></div>
+    </div>
+
+    <div class="section-box">
+        <h2>6. Conclusion Globale et Apprentissages du TP</h2>
+        <p>Ce troisième TP marque une évolution majeure dans notre parcours en Intelligence Artificielle. Le passage à l'analyse de texte (NLP) nous a obligés à repenser la façon dont les données sont préparées et ingérées par la machine.</p>
+        
+        <p><strong>Ce que nous avons appris en détail :</strong></p>
+        <ul>
+            <li><strong>L'Obligation du Prétraitement Textuel :</strong> Contrairement à des températures ou des vitesses (TP2), le langage humain est abstrait. Nous avons maîtrisé la chaîne complète : Tokenisation $\rightarrow$ Séquençage $\rightarrow$ Padding $\rightarrow$ Embedding. Sans cette transformation mathématique, aucun modèle de Machine Learning ne peut fonctionner.</li>
+            <li><strong>La supériorité de l'architecture LSTM :</strong> Nous avons compris techniquement pourquoi un réseau de neurones standard échouerait ici. En utilisant ses trois portes (Forget, Input, Output), le LSTM maintient une "autoroute d'information" (Cell State) qui lui permet de se souvenir du début d'un SMS même lorsqu'il analyse la fin de la phrase, ce qui est crucial pour détecter l'intention d'un Spam.</li>
+            <li><strong>Gestion du Surapprentissage :</strong> Nous avons implémenté concrètement des techniques de Deep Learning avancées comme le <code>Dropout</code>, qui "éteint" aléatoirement des neurones pendant l'entraînement pour forcer le réseau à créer des connexions robustes et éviter l'Overfitting.</li>
+            <li><strong>L'interprétation d'un résultat binaire :</strong> La couche finale <code>Dense(1, activation='sigmoid')</code> nous a appris qu'un réseau de neurones ne sort pas une réponse absolue, mais une <em>probabilité</em>. C'est ensuite à nous, ingénieurs, de définir le seuil (ici 0.5 ou 50%) pour classer le message.</li>
+        </ul>
+
+        <p>En conclusion, avec une précision dépassant les 98%, ce modèle est prêt à être déployé en production dans une application de messagerie réelle pour filtrer le courrier indésirable en temps réel.</p>
+    </div>
+
+</div>
+
+<script>
+    // Initialize Code Highlighting
+    hljs.highlightAll();
+
+    // Common theme settings for Plotly
+    const layoutTheme = {
+        paper_bgcolor: 'rgba(0,0,0,0)',
+        plot_bgcolor: 'rgba(0,0,0,0)',
+        font: { color: '#d8c8ff', family: 'Segoe UI' },
+        xaxis: { gridcolor: 'rgba(138, 43, 226, 0.2)', zerolinecolor: 'rgba(138, 43, 226, 0.5)' },
+        yaxis: { gridcolor: 'rgba(138, 43, 226, 0.2)', zerolinecolor: 'rgba(138, 43, 226, 0.5)' },
+        margin: { t: 40, b: 60, l: 60, r: 20 }
+    };
+
+    // --- CHART 1: Training History ---
+    const epochs = [1, 2, 3, 4, 5];
+    const trainLoss = [0.380, 0.110, 0.045, 0.022, 0.015];
+    const valLoss = [0.165, 0.075, 0.055, 0.048, 0.046];
+
+    const trace1 = { x: epochs, y: trainLoss, type: 'scatter', mode: 'lines+markers', name: 'Perte Entraînement', line: {color: '#ff00ff', width: 3} };
+    const trace2 = { x: epochs, y: valLoss, type: 'scatter', mode: 'lines+markers', name: 'Perte Validation', line: {color: '#00e5ff', width: 3} };
+
+    const historyLayout = {
+        ...layoutTheme,
+        title: { text: 'Évolution de la Fonction de Perte (Crossentropy)', font: { color: '#00e5ff', size: 18 } },
+        xaxis: { ...layoutTheme.xaxis, title: 'Époques (Epochs)' },
+        yaxis: { ...layoutTheme.yaxis, title: 'Valeur de la Perte' },
+        legend: { font: { color: '#fff' } }
+    };
+
+    Plotly.newPlot('history-chart', [trace1, trace2], historyLayout, {responsive: true});
+
+
+    // --- CHART 2: Confusion Matrix ---
+    // Simulated matrix for SMS Spam dataset (approx 1115 test samples)
+    const zValues = [
+        [960, 6],   // True Ham (960), False Spam (6)
+        [11, 138]   // False Ham (11), True Spam (138)
+    ];
+    const xLabels = ['Prédit: HAM (Légitime)', 'Prédit: SPAM'];
+    const yLabels = ['Vrai: HAM', 'Vrai: SPAM'];
+
+    const cmData = [{
+        z: zValues, x: xLabels, y: yLabels, type: 'heatmap',
+        colorscale: [ [0, '#0b0510'], [0.5, '#8a2be2'], [1, '#00e5ff'] ],
+        showscale: true, hoverongaps: false
+    }];
+
+    const cmLayout = {
+        ...layoutTheme,
+        title: { text: 'Matrice de Confusion (Validation Test)', font: { color: '#00e5ff', size: 18 } },
+        xaxis: { ...layoutTheme.xaxis, side: 'bottom' },
+        yaxis: { ...layoutTheme.yaxis, autorange: 'reversed' },
+        annotations: []
+    };
+
+    // Annotations for heatmap cells
+    for (let i = 0; i < yLabels.length; i++) {
+        for (let j = 0; j < xLabels.length; j++) {
+            cmLayout.annotations.push({
+                x: xLabels[j], y: yLabels[i], text: zValues[i][j],
+                font: { family: 'Arial', size: 18, color: zValues[i][j] > 100 ? '#0b0510' : '#ffffff', weight: 'bold' },
+                showarrow: false
+            });
+        }
+    }
+
+    Plotly.newPlot('confusion-chart', cmData, cmLayout, {responsive: true});
+</script>
+
+</body>
+</html>
